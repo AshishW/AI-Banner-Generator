@@ -5,7 +5,7 @@ This Flask application is a backend server that dynamically generates image bann
 
 ## System Architecture
 
-[System Architecture Diagram](systemarchitecture.md)
+[System Architecture Design documentation](systemarchitecture.md)
 
 
 
