@@ -11,7 +11,6 @@ This Flask application is a backend server that dynamically generates image bann
 
 ## Directory structure
 
-```directory structure
 ```
 ├── app.py
 ├── README.md
