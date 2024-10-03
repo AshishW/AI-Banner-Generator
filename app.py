@@ -28,7 +28,7 @@ CORS(app)
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 
-flux_client = Client("black-forest-labs/FLUX.1-schnell", hf_token=os.environ.get("HF_TOKEN"))
+# flux_client = Client("black-forest-labs/FLUX.1-schnell", hf_token=os.environ.get("HF_TOKEN"))
 
 
 
@@ -275,7 +275,7 @@ def generate_background(theme, color_palette, canvasWidth, canvasHeight):
     colors = ",".join(color_palette)
     prompt = f"abstract background image banner, background theme: {theme}, background colors: {colors}"
     print(f"Generating background image for: {prompt}")
-    # flux_client = Client("black-forest-labs/FLUX.1-schnell")
+    flux_client = Client("black-forest-labs/FLUX.1-schnell")
     result = flux_client.predict(
         prompt=prompt,
         seed=0,
@@ -285,6 +285,7 @@ def generate_background(theme, color_palette, canvasWidth, canvasHeight):
         num_inference_steps=4,
         api_name="/infer"
     )
+    del flux_client
     return result
 
 def image_to_base64(image_path):
