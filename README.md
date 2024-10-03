@@ -3,6 +3,10 @@
 This Flask application is a backend server that dynamically generates image banner templates. It uses pre-defined templates or generates them on-the-fly using the Gemini LLM, depending on user-specified resolution and number of images.  Background images are created using an image generation model (potentially Flux), incorporating user-defined themes and color palettes. The resulting banner is then encoded in base64 for easy integration into web applications.  
 
 
+## Frontend Repository
+
+[Frontend Repository](https://github.com/AshishW/AI-banner-generator-frontend)
+
 ## System Architecture
 
 [System Architecture Design documentation](systemarchitecture.md)
