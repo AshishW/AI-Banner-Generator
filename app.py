@@ -389,26 +389,22 @@ def select_template(resolution, num_images):
         return generate_template_with_gemini(resolution, num_images)
     
 
-def generate_banner(promotion, theme, resolution, color_palette, image_data_list):
+def generate_banner(promotion, theme, resolution, color_palette, temp_file_paths):
     try:
-        num_images = len(image_data_list)
+        num_images = len(temp_file_paths)
         # print("Number of images: ", num_images)
 
         has_atleast_one_potrait_image = False
 
         uploaded_files = []
-        for image_data in image_data_list:
+        for file_path in temp_file_paths:
             # Convert base64 to bytes and upload each image
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
-                temp_file.write(base64.b64decode(image_data.split(",")[1]))
-                temp_file_path = temp_file.name  
-            with Image.open(temp_file_path) as temp_image:
+            with Image.open(file_path) as temp_image:
                 img_width, img_height = temp_image.size
                 if img_height >img_width:
                     has_atleast_one_potrait_image = True
-            uploaded_file = genai.upload_file(temp_file_path) 
+            uploaded_file = genai.upload_file(file_path) 
             uploaded_files.append(uploaded_file)
-            os.remove(temp_file_path)
         
         
         selected_template = select_template(resolution, num_images)
@@ -472,7 +468,7 @@ def generate_banner(promotion, theme, resolution, color_palette, image_data_list
         design_choices = parse_gemini_response(response.text)
 
         # Apply design choices 
-        modified_template = apply_design_choices(template, design_choices, width, height, image_data_list)
+        modified_template = apply_design_choices(template, design_choices, width, height, temp_file_paths)
 
         modified_template['objects'].insert(0, {
             "type": "image",
@@ -484,6 +480,8 @@ def generate_banner(promotion, theme, resolution, color_palette, image_data_list
         })
 
         background_image_base64 = None
+        for temp_file_path in temp_file_paths: # removing temp files
+            os.remove(temp_file_path)
 
         return modified_template
         # return responsive_template
@@ -508,7 +506,7 @@ def get_smallest_font_size(template):
                 smallest_font_size = obj['fontSize']
     return smallest_font_size
 
-def apply_design_choices(template, choices, width, height, image_data_list):
+def apply_design_choices(template, choices, width, height, temp_file_paths):
     # Reset image_index for each function call
     image_index = 0
     # compare font size of text objects and store the smallest one
@@ -530,8 +528,11 @@ def apply_design_choices(template, choices, width, height, image_data_list):
             obj['textAlign'] = obj.get('textAlign', 'left')
 
         elif obj['type'] == 'image':
-            if image_index < len(image_data_list) and image_data_list[image_index]:
-                obj['src'] = f"data:image/jpeg;base64,{image_data_list[image_index]}"
+            if image_index < len(temp_file_paths) and temp_file_paths[image_index]:
+                with open(temp_file_paths[image_index], "rb") as image_file:
+                    base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+                    obj['src'] = f"data:image/jpeg;base64,{base64_image}"
+                    base64_image = None
                 image_index += 1
             else:
                 # Remove the image object if no data is available
@@ -555,7 +556,14 @@ def create_banner():
         color_palette = data['color_palette']
         image_data_list = data['images']
 
-        banner_data = generate_banner(promotion, theme, resolution, color_palette, image_data_list)
+        temp_file_paths = []
+        for image_data in image_data_list:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+                temp_file.write(base64.b64decode(image_data.split(",")[1]))
+                temp_file_paths.append(temp_file.name)  
+
+        banner_data = generate_banner(promotion, theme, resolution, color_palette, temp_file_paths)
+
         return jsonify(banner_data)
     except Exception as e:
         logging.error(f"Error in create_banner: {str(e)}")

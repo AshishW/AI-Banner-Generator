@@ -83,7 +83,7 @@ These instructions guide you through setting up and running the Flask applicatio
 6.  **Run the Application:** Navigate to the application's directory and start the Flask development server:
 
     ```bash
-    python app.py
+    flask run --debug
     ```
 
     This will typically start the server on `http://127.0.0.1:5000/` (or a similar address). Open your web browser and go to that address to see the application.
