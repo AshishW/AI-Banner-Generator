@@ -11,6 +11,7 @@ import logging
 import math
 from gradio_client import Client
 import copy
+import tempfile
 
 from flask_cors import CORS
 from huggingface_hub import login
@@ -392,15 +393,21 @@ def generate_banner(promotion, theme, resolution, color_palette, image_data_list
         num_images = len(image_data_list)
         # print("Number of images: ", num_images)
 
-        input_images_list = []
         has_atleast_one_potrait_image = False
-        for image_data in image_data_list: # converting base64 encoded data to image for gemini api request
-            decoded_image = Image.open(io.BytesIO( base64.b64decode(image_data.split(",")[1])))
-            input_images_list.append(decoded_image)
-            img_width, img_height = decoded_image.size #could be used for checking if image is landscape or potrait
-            print("IMAGE RES: ", f'{img_width}, {img_height}')
-            if img_height > img_width:
-                has_atleast_one_potrait_image = True
+
+        uploaded_files = []
+        for image_data in image_data_list:
+            # Convert base64 to bytes and upload each image
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+                temp_file.write(base64.b64decode(image_data.split(",")[1]))
+                temp_file_path = temp_file.name  
+            with Image.open(temp_file_path) as temp_image:
+                img_width, img_height = temp_image.size
+                if img_height >img_width:
+                    has_atleast_one_potrait_image = True
+            uploaded_file = genai.upload_file(temp_file_path) 
+            uploaded_files.append(uploaded_file)
+            os.remove(temp_file_path)
         
         
         selected_template = select_template(resolution, num_images)
@@ -421,8 +428,13 @@ def generate_banner(promotion, theme, resolution, color_palette, image_data_list
         # Generate background image
         background_image_path = generate_background(theme, color_palette, width, height)[0]
         background_image_base64 = image_to_base64(background_image_path)
-        background_image = Image.open(io.BytesIO( base64.b64decode(background_image_base64))) # for sending background image to gemini
-       
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+            temp_file.write(base64.b64decode(background_image_base64))
+            temp_file_path = temp_file.name  
+            background_image_file = genai.upload_file(temp_file_path)  # Upload background image
+        os.remove(temp_file_path)
+
         
         prompt = f"""
         Create a banner design based on the following:
@@ -451,7 +463,8 @@ def generate_banner(promotion, theme, resolution, color_palette, image_data_list
         """
 
         model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content([prompt, background_image]+input_images_list) #input_images_list has input images
+        response = model.generate_content([prompt, background_image_file] + uploaded_files ) #uploaded_files has input images
+        
 
         logging.debug(f"Gemini API response: {response.text}")
 
@@ -459,10 +472,6 @@ def generate_banner(promotion, theme, resolution, color_palette, image_data_list
 
         # Apply design choices 
         modified_template = apply_design_choices(template, design_choices, width, height, image_data_list)
-
-        # Generate background image
-        # background_image_path = generate_background(theme, color_palette, width, height)[0]
-        # background_image_base64 = image_to_base64(background_image_path)
 
         modified_template['objects'].insert(0, {
             "type": "image",
@@ -472,6 +481,8 @@ def generate_banner(promotion, theme, resolution, color_palette, image_data_list
             "height": "100%",
             "src": f"data:image/png;base64,{background_image_base64}"
         })
+
+        background_image_base64 = None
 
         return modified_template
         # return responsive_template
