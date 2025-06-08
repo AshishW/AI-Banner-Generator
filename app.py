@@ -9,7 +9,6 @@ import random
 import json
 import logging
 import math
-from gradio_client import Client
 import copy
 import tempfile
 
