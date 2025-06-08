@@ -272,21 +272,45 @@ TEMPLATES = [
 
 
 def generate_background(theme, color_palette, canvasWidth, canvasHeight):
-    colors = ",".join(color_palette)
-    prompt = f"abstract background image banner, background theme: {theme}, background colors: {colors}"
-    print(f"Generating background image for: {prompt}")
-    flux_client = Client("black-forest-labs/FLUX.1-schnell")
-    result = flux_client.predict(
-        prompt=prompt,
-        seed=0,
-        randomize_seed=True,
-        width=canvasWidth,
-        height=canvasHeight,
-        num_inference_steps=4,
-        api_name="/infer"
-    )
-    del flux_client
-    return result
+    colors = ", ".join(color_palette)
+    prompt = f"Create an abstract background banner with the theme '{theme}' and color palette: {colors}. The banner should be {canvasWidth}x{canvasHeight} pixels."
+    print(f"Generating background image with Gemini: {prompt}")
+
+    try:
+        model = genai.GenerativeModel(model_name="gemini-2.0-flash-preview-image-generation")
+        response = model.generate_content(prompt)
+
+        if response.candidates and response.candidates[0].content.parts:
+            # Assuming the first part is the image
+            image_part = response.candidates[0].content.parts[0]
+            # The Gemini API returns a list of GeneratedImage objects.
+            # Each object has a pil_image attribute containing the image data as a PIL Image object.
+            if hasattr(image_part, 'pil_image') and image_part.pil_image:
+                 generated_image = image_part.pil_image
+            elif hasattr(image_part, 'image_data') and image_part.image_data: # fallback for older versions
+                 image_data = image_part.image_data
+                 generated_image = Image.open(io.BytesIO(image_data))
+            else: #fallback for response.generative_image
+                generated_image = response.generated_images[0].pil_image
+
+
+            if generated_image:
+                # Save the PIL image to a temporary file
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+                    generated_image.save(temp_file, format="PNG")
+                    temp_file_path = temp_file.name
+                return [temp_file_path]  # Return as a list to match previous format
+            else:
+                raise ValueError("No image data found in the response.")
+        else:
+            raise ValueError("No candidates found in the Gemini response.")
+
+    except Exception as e:
+        logging.error(f"Error generating background with Gemini: {str(e)}")
+        # Fallback or error handling
+        # For now, let's re-raise the exception to see it during testing
+        # In a production scenario, you might return a default image or a more specific error message
+        raise
 
 def image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
