@@ -14,8 +14,7 @@ import copy
 import tempfile
 
 from flask_cors import CORS
-from huggingface_hub import login
-login(token=os.environ.get("HF_TOKEN"))
+
 
 
 app = Flask(__name__)
